@@ -50,7 +50,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Port Browser API",
+    title="FTP Indexer API",
     description="Search and manage a persistent FTP/FTPS metadata index.",
     version=__version__,
     lifespan=lifespan,
@@ -59,7 +59,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret,
-    session_cookie="port_browser_session",
+    session_cookie="ftp_indexer_session",
     same_site="strict",
     https_only=settings.secure_cookies,
     max_age=60 * 60 * 12,

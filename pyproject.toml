@@ -1,5 +1,5 @@
 [project]
-name = "port-browser"
+name = "ftp-indexer"
 version = "1.0.0"
 description = "A resumable FTP/FTPS metadata crawler and fast searchable web index."
 requires-python = ">=3.11"

@@ -1,28 +1,27 @@
-name: port-browser-indexer
+name: ftp-indexer
 
-x-port-browser: &port-browser
-  image: port-browser:local
+x-ftp-indexer: &ftp-indexer
+  build:
+    context: .
+    dockerfile: Dockerfile
   env_file:
     - .env
   volumes:
-    - port_browser_data:/data
-    - port_browser_config:/config
-    - port_browser_logs:/logs
+    - ftp_indexer_data:/data
+    - ftp_indexer_config:/config
+    - ftp_indexer_logs:/logs
   init: true
 
 services:
   migrate:
-    <<: *port-browser
+    <<: *ftp-indexer
     command: ["alembic", "upgrade", "head"]
     healthcheck:
       disable: true
     restart: "no"
 
   web:
-    <<: *port-browser
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *ftp-indexer
     command: ["python", "-m", "app.run_web"]
     depends_on:
       migrate:
@@ -42,7 +41,7 @@ services:
     restart: unless-stopped
 
   crawler:
-    <<: *port-browser
+    <<: *ftp-indexer
     command: ["python", "-m", "app.worker"]
     depends_on:
       migrate:
@@ -53,9 +52,9 @@ services:
     restart: unless-stopped
 
 volumes:
-  port_browser_data:
-    name: port-browser-indexer-data
-  port_browser_config:
-    name: port-browser-indexer-config
-  port_browser_logs:
-    name: port-browser-indexer-logs
+  ftp_indexer_data:
+    name: ftp-indexer-data
+  ftp_indexer_config:
+    name: ftp-indexer-config
+  ftp_indexer_logs:
+    name: ftp-indexer-logs

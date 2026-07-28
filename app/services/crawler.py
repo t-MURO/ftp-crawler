@@ -29,7 +29,7 @@ from app.services.music import parse_music_metadata
 from app.services.security import redact_sensitive
 from app.services.settings import crawler_config, effective_settings
 
-logger = logging.getLogger("port-browser.crawler")
+logger = logging.getLogger("ftp-indexer.crawler")
 
 
 def file_extension(filename: str) -> str:

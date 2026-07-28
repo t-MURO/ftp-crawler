@@ -483,13 +483,13 @@
     byId("file-dialog").addEventListener("click", (event) => {
       if (event.target === byId("file-dialog")) byId("file-dialog").close();
     });
-    const storedTheme = localStorage.getItem("port-browser-theme");
+    const storedTheme = localStorage.getItem("ftp-indexer-theme");
     const preferredDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     document.documentElement.dataset.theme = storedTheme || (preferredDark ? "dark" : "light");
     byId("theme-toggle").addEventListener("click", () => {
       const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
       document.documentElement.dataset.theme = next;
-      localStorage.setItem("port-browser-theme", next);
+      localStorage.setItem("ftp-indexer-theme", next);
     });
     byId("mobile-menu").addEventListener("click", () => document.querySelector(".sidebar").classList.toggle("open"));
     document.querySelectorAll(".nav-item").forEach((item) => {

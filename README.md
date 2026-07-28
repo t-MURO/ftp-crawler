@@ -1,10 +1,11 @@
-# Port Browser
+# FTP Indexer
 
-Port Browser is a Dockerized FTP/FTPS metadata crawler and search interface. It
+FTP Indexer is a Dockerized FTP/FTPS metadata crawler and search interface. It
 recursively indexes remote filenames and directory metadata without downloading
 file contents, then serves fast filename and path searches through SQLite FTS5.
 
-The application is designed for large trees and TrueNAS SCALE:
+The application runs with standard Docker Compose on Linux, macOS, or Windows
+and is designed for large FTP directory trees:
 
 - the web/API service and crawler run independently;
 - scan queues are stored in SQLite and survive restarts;
@@ -15,22 +16,30 @@ The application is designed for large trees and TrueNAS SCALE:
 - named Docker volumes preserve the database, crawler log, and configuration
   directory.
 
-## Quick start on TrueNAS SCALE
+## Quick start
 
-1. Copy this directory to a persistent dataset on the TrueNAS server.
-2. Keep `.env` beside `docker-compose.yml`. It is already ignored by Git.
-3. Review `.env`, especially `FTP_PROTOCOL`, `FTP_PORT`, and `FTP_ROOT_PATH`.
+1. Install Docker Engine with the Compose plugin, or Docker Desktop.
+2. Clone this repository or copy the project directory to the Docker host.
+3. Create the local environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Review `.env`, especially `FTP_HOST`, `FTP_USERNAME`, `FTP_PASSWORD`,
+   `FTP_PROTOCOL`, and `FTP_ROOT_PATH`.
    Use `FTP_PROTOCOL=ftps` for explicit FTPS and normally keep port `21`.
-4. From the directory, start the stack:
+5. From the project directory, start the stack:
 
    ```bash
    docker compose up -d --build
    ```
 
-5. Open `http://YOUR-TRUENAS-IP:11025` (or the `HOST_PORT` configured in
-   `.env`).
-6. Sign in with the administrator username and password configured in `.env`.
-7. Select **Start incremental scan**. The page will show the current directory,
+6. Open `http://localhost:11025`. When Docker runs on another machine, replace
+   `localhost` with that machine's hostname or IP address. The port is
+   configurable with `HOST_PORT` in `.env`.
+7. Sign in with the administrator username and password configured in `.env`.
+8. Select **Start incremental scan**. The page will show the current directory,
    live statistics, and recent crawler events.
 
 The first crawl can take a long time on a very large server. It can be stopped
@@ -67,7 +76,7 @@ Copy `.env.example` to `.env` for a new installation. Important variables:
 | `FTP_TLS_VERIFY` | `true` | Verify the FTPS server certificate chain |
 | `SCAN_SCHEDULE` | `0 */6 * * *` | Standard five-field cron schedule; blank disables |
 | `DATABASE_URL` | `sqlite:////data/ftp-index.db` | Persistent index database |
-| `HOST_PORT` | `11025` | Port published by Docker on the TrueNAS host |
+| `HOST_PORT` | `11025` | Port published on the Docker host |
 | `WEB_PORT` | `8080` | Internal web service port; normally leave unchanged |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | optional | Local web administrator; blank password disables login |
 | `SESSION_SECRET` | required | Long random value used to sign sessions |
@@ -85,8 +94,8 @@ trusted by the container. Set it to `false` only for a server with a known,
 privately trusted or incomplete certificate chain; the session remains
 encrypted but the server identity is not verified.
 
-If TrueNAS exposes the app through HTTPS, set `SECURE_COOKIES=true` and set
-`ALLOWED_HOSTS` to the app hostname or IP.
+When exposing the app through an HTTPS reverse proxy, set
+`SECURE_COOKIES=true` and set `ALLOWED_HOSTS` to the app hostname or IP.
 
 ## Search
 
@@ -160,7 +169,7 @@ database and its `-wal` file. The simplest consistent backup is:
 ```bash
 docker compose stop web crawler
 docker run --rm \
-  -v port-browser-indexer-data:/source:ro \
+  -v ftp-indexer-data:/source:ro \
   -v "$PWD/backups:/backup" \
   alpine cp -a /source/. /backup/
 docker compose start web crawler

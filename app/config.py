@@ -16,7 +16,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "Port Browser"
+    app_name: str = "FTP Indexer"
     app_environment: Literal["development", "production", "test"] = "production"
     web_host: str = "0.0.0.0"
     web_port: int = Field(default=8080, ge=1, le=65535)
