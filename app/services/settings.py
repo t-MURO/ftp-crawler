@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 
 from sqlalchemy.orm import Session
 
-from app.config import Settings, get_settings
+from app.config import Settings, get_settings, normalize_extension_whitelist
 from app.models import AppSetting, utcnow
 
 EDITABLE_SETTING_TYPES: dict[str, type] = {
@@ -15,6 +15,7 @@ EDITABLE_SETTING_TYPES: dict[str, type] = {
     "ftp_username": str,
     "ftp_passive_mode": bool,
     "ftp_root_path": str,
+    "file_extension_whitelist": str,
     "ftp_timeout_seconds": int,
     "ftp_max_retries": int,
     "ftp_request_delay_ms": int,
@@ -40,6 +41,8 @@ class CrawlerConfig:
     ftp_batch_size: int
     ftp_tls_verify: bool
     music_filename_parsing: bool
+    ftp_excluded_paths: tuple[str, ...] = ()
+    file_extension_whitelist: tuple[str, ...] = ()
 
 
 def _decode_setting(key: str, value: str):
@@ -92,12 +95,23 @@ def crawler_config(db: Session, base: Settings | None = None) -> CrawlerConfig:
         ftp_batch_size=base.ftp_batch_size,
         ftp_tls_verify=base.ftp_tls_verify,
         music_filename_parsing=bool(effective["music_filename_parsing"]),
+        ftp_excluded_paths=base.ftp_excluded_paths_list,
+        file_extension_whitelist=tuple(
+            item
+            for item in normalize_extension_whitelist(
+                str(effective["file_extension_whitelist"])
+            ).split(",")
+            if item
+        ),
     )
 
 
 def public_crawler_config(db: Session) -> dict[str, object]:
     config = asdict(crawler_config(db))
     config.pop("ftp_password", None)
+    config["file_extension_whitelist"] = ",".join(
+        config["file_extension_whitelist"]
+    )
     config["ftp_password_configured"] = bool(get_settings().ftp_password)
     return config
 

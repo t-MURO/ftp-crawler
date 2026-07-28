@@ -18,9 +18,10 @@ from app import __version__
 from app.config import get_settings
 from app.database import SessionLocal, get_db
 from app.models import CrawlLog, ScanDirectory, ScanRun, utcnow
-from app.schemas import ScanCreate, SearchParams, SettingsUpdate
+from app.schemas import DataResetRequest, ScanCreate, SearchParams, SettingsUpdate
 from app.services.crawler import create_scan, write_crawl_log
 from app.services.dashboard import dashboard_stats, scan_to_dict
+from app.services.data_reset import ActiveScanError, reset_crawl_data
 from app.services.search import get_file_detail, search_files
 from app.services.security import (
     get_csrf_token,
@@ -345,3 +346,18 @@ def api_update_settings(
     require_csrf(request)
     values = payload.model_dump(exclude_unset=True, exclude_none=True)
     return save_overrides(db, values)
+
+
+@app.post("/api/data/reset", tags=["system"])
+def api_reset_data(
+    payload: DataResetRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    _user: str = Depends(require_authenticated),
+):
+    require_csrf(request)
+    try:
+        deleted = reset_crawl_data(db)
+    except ActiveScanError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return {"deleted": deleted, "settings_preserved": True}

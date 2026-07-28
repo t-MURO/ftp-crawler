@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.config import normalize_extension_whitelist
+
 
 class SearchParams(BaseModel):
     q: str = Field(default="", max_length=500)
@@ -47,6 +49,10 @@ class ScanCreate(BaseModel):
     mode: Literal["incremental", "full"] = "incremental"
 
 
+class DataResetRequest(BaseModel):
+    confirmation: Literal["DELETE"]
+
+
 class SettingsUpdate(BaseModel):
     ftp_host: str | None = Field(default=None, min_length=1, max_length=253)
     ftp_port: int | None = Field(default=None, ge=1, le=65535)
@@ -54,6 +60,7 @@ class SettingsUpdate(BaseModel):
     ftp_username: str | None = Field(default=None, max_length=512)
     ftp_passive_mode: bool | None = None
     ftp_root_path: str | None = Field(default=None, max_length=4096)
+    file_extension_whitelist: str | None = Field(default=None, max_length=2048)
     ftp_timeout_seconds: int | None = Field(default=None, ge=5, le=600)
     ftp_max_retries: int | None = Field(default=None, ge=0, le=20)
     ftp_request_delay_ms: int | None = Field(default=None, ge=0, le=60_000)
@@ -71,6 +78,13 @@ class SettingsUpdate(BaseModel):
             raise ValueError("FTP root cannot contain a null byte")
         normalized = "/" + value.strip().strip("/")
         return "/" if normalized == "/" else normalized
+
+    @field_validator("file_extension_whitelist")
+    @classmethod
+    def validate_file_extensions(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        return normalize_extension_whitelist(value)
 
     @field_validator("scan_schedule")
     @classmethod

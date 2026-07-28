@@ -27,7 +27,7 @@ and is designed for large FTP directory trees:
    ```
 
 4. Review `.env`, especially `FTP_HOST`, `FTP_USERNAME`, `FTP_PASSWORD`,
-   `FTP_PROTOCOL`, and `FTP_ROOT_PATH`.
+   `FTP_PROTOCOL`, `FTP_ROOT_PATH`, and `FTP_EXCLUDED_PATHS`.
    Use `FTP_PROTOCOL=ftps` for explicit FTPS and normally keep port `21`.
 5. From the project directory, start the stack:
 
@@ -69,11 +69,13 @@ Copy `.env.example` to `.env` for a new installation. Important variables:
 | `FTP_USERNAME` / `FTP_PASSWORD` | required | Remote credentials |
 | `FTP_PASSIVE_MODE` | `true` | Use passive data connections |
 | `FTP_ROOT_PATH` | `/` | Limit crawling to this remote subtree |
+| `FTP_EXCLUDED_PATHS` | `/SRV2_BASIC` | Comma-separated remote subtrees to ignore |
 | `FTP_TIMEOUT_SECONDS` | `30` | Per-connection/request timeout |
 | `FTP_MAX_RETRIES` | `5` | Reconnect attempts per failed request |
 | `FTP_REQUEST_DELAY_MS` | `250` | Courtesy delay after directory requests |
 | `FTP_BATCH_SIZE` | `500` | Metadata rows processed per database batch |
 | `FTP_TLS_VERIFY` | `true` | Verify the FTPS server certificate chain |
+| `FILE_EXTENSION_WHITELIST` | common audio extensions | Comma-separated extensions to index; blank allows every type |
 | `SCAN_SCHEDULE` | `0 */6 * * *` | Standard five-field cron schedule; blank disables |
 | `DATABASE_URL` | `sqlite:////data/ftp-index.db` | Persistent index database |
 | `HOST_PORT` | `11025` | Port published on the Docker host |
@@ -88,6 +90,11 @@ Copy `.env.example` to `.env` for a new installation. Important variables:
 The settings page stores non-secret crawler overrides in SQLite. The FTP
 password can only be supplied through the environment and is never returned by
 the API, rendered in the page, or included in crawler logs.
+
+The settings page also has a guarded **Remove all data** action. It requires
+typing `DELETE`, refuses to run during an active scan, and clears the index,
+scan history, and crawler logs while preserving connection settings and the
+administrator account.
 
 Keep `FTP_TLS_VERIFY=true` whenever the server presents a certificate chain
 trusted by the container. Set it to `false` only for a server with a known,

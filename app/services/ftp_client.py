@@ -45,6 +45,11 @@ def is_within_root(path: str, root: str) -> bool:
     return root == "/" or path == root or path.startswith(root + "/")
 
 
+def is_excluded_remote_path(path: str, excluded_paths: tuple[str, ...]) -> bool:
+    path = normalize_remote_path(path)
+    return any(is_within_root(path, excluded) for excluded in excluded_paths)
+
+
 def parse_ftp_timestamp(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -163,6 +168,8 @@ class ResilientFTPClient:
         path = normalize_remote_path(path)
         if not is_within_root(path, self.config.ftp_root_path):
             raise ValueError("Refusing to scan outside the configured FTP root")
+        if is_excluded_remote_path(path, self.config.ftp_excluded_paths):
+            return []
         command_path = path if path == "/" else path.lstrip("/")
 
         def operation(ftp: ftplib.FTP) -> list[RemoteEntry]:
@@ -174,8 +181,21 @@ class ResilientFTPClient:
                 if not name or name in {".", ".."}:
                     continue
                 remote_path = join_remote_path(path, name)
+                if is_excluded_remote_path(
+                    remote_path,
+                    self.config.ftp_excluded_paths,
+                ):
+                    continue
                 kind = str(facts.get("type", "")).lower()
                 if kind in {"cdir", "pdir"}:
+                    continue
+                is_directory = kind == "dir"
+                extension = posixpath.splitext(name)[1].lower().lstrip(".")
+                if (
+                    not is_directory
+                    and self.config.file_extension_whitelist
+                    and extension not in self.config.file_extension_whitelist
+                ):
                     continue
                 size_text = str(facts.get("size", "0"))
                 size = int(size_text) if size_text.isdigit() else 0
@@ -183,7 +203,7 @@ class ResilientFTPClient:
                     RemoteEntry(
                         name=name,
                         path=remote_path,
-                        kind="directory" if kind == "dir" else "file",
+                        kind="directory" if is_directory else "file",
                         size=size,
                         modified_at=parse_ftp_timestamp(facts.get("modify")),
                     )

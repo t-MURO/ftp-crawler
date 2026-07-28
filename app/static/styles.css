@@ -1291,6 +1291,33 @@ mark {
   max-width: 540px;
 }
 
+.settings-danger {
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--red) 32%, var(--line));
+  border-radius: 12px;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-top: 22px;
+  padding: 18px;
+}
+
+.settings-danger h3 {
+  font-size: 13px;
+  margin: 3px 0 6px;
+}
+
+.settings-danger p {
+  color: var(--muted);
+  font-size: 10px;
+  margin: 0;
+  max-width: 650px;
+}
+
+.settings-danger .eyebrow {
+  color: var(--red);
+}
+
 .saved-indicator {
   color: var(--muted);
   font-size: 10px;
@@ -1335,6 +1362,37 @@ mark {
 
 .dialog-head .eyebrow {
   margin-bottom: 3px;
+}
+
+.reset-dialog-body {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
+.reset-dialog-body > p {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.reset-dialog-body label {
+  display: grid;
+  font-size: 10px;
+  font-weight: 700;
+  gap: 7px;
+}
+
+.reset-dialog-actions {
+  display: flex;
+  gap: 9px;
+  justify-content: flex-end;
+}
+
+.danger-icon {
+  background: var(--red-soft);
+  color: var(--red);
 }
 
 .detail-grid {

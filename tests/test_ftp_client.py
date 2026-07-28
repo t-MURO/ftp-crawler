@@ -1,4 +1,5 @@
 import ftplib
+from dataclasses import replace
 from datetime import UTC
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from app.services.ftp_client import (
     ResilientFTPClient,
     SessionReusingFTP_TLS,
+    is_excluded_remote_path,
     is_within_root,
     join_remote_path,
     normalize_remote_path,
@@ -30,6 +32,14 @@ def test_root_boundary_is_enforced() -> None:
     assert is_within_root("/music/house/file.mp3", "/music")
     assert is_within_root("/music", "/music")
     assert not is_within_root("/musical/file.mp3", "/music")
+
+
+def test_excluded_paths_include_their_subtrees() -> None:
+    excluded = ("/SRV2_BASIC",)
+
+    assert is_excluded_remote_path("/SRV2_BASIC", excluded)
+    assert is_excluded_remote_path("/SRV2_BASIC/releases", excluded)
+    assert not is_excluded_remote_path("/BASIC", excluded)
 
 
 def test_parses_mlsd_timestamp_as_utc() -> None:
@@ -116,3 +126,80 @@ def test_virtual_root_listing_uses_relative_command_path() -> None:
 
     assert ftp.listed_path == "virtual/folder"
     assert entries[0].path == "/virtual/folder/track.mp3"
+
+
+def test_excluded_directory_is_filtered_from_parent_listing() -> None:
+    class RecordingFTP:
+        def mlsd(self, _path, facts):
+            return [
+                ("SRV2_BASIC", {"type": "dir", "size": "1"}),
+                ("BASIC", {"type": "dir", "size": "1"}),
+            ]
+
+    client = ResilientFTPClient(
+        replace(ftps_config(), ftp_excluded_paths=("/SRV2_BASIC",))
+    )
+    client.ftp = RecordingFTP()
+
+    entries = client.list_directory("/")
+
+    assert [entry.path for entry in entries] == ["/BASIC"]
+
+
+def test_excluded_directory_is_skipped_without_an_ftp_request() -> None:
+    class FailIfListedFTP:
+        def mlsd(self, _path, facts):
+            raise AssertionError("Excluded directories must not be listed")
+
+    client = ResilientFTPClient(
+        replace(ftps_config(), ftp_excluded_paths=("/SRV2_BASIC",))
+    )
+    client.ftp = FailIfListedFTP()
+
+    assert client.list_directory("/SRV2_BASIC") == []
+
+
+def test_file_extension_whitelist_filters_files_but_not_directories() -> None:
+    class RecordingFTP:
+        def mlsd(self, _path, facts):
+            return [
+                ("Album.with.dots", {"type": "dir", "size": "1"}),
+                ("TRACK.MP3", {"type": "file", "size": "2"}),
+                ("mix.flac", {"type": "file", "size": "3"}),
+                ("cover.jpg", {"type": "file", "size": "4"}),
+                ("README", {"type": "file", "size": "5"}),
+            ]
+
+    client = ResilientFTPClient(
+        replace(
+            ftps_config(),
+            file_extension_whitelist=("mp3", "flac"),
+        )
+    )
+    client.ftp = RecordingFTP()
+
+    entries = client.list_directory("/")
+
+    assert [entry.name for entry in entries] == [
+        "Album.with.dots",
+        "TRACK.MP3",
+        "mix.flac",
+    ]
+
+
+def test_empty_file_extension_whitelist_allows_every_file_type() -> None:
+    class RecordingFTP:
+        def mlsd(self, _path, facts):
+            return [
+                ("cover.jpg", {"type": "file", "size": "4"}),
+                ("README", {"type": "file", "size": "5"}),
+            ]
+
+    client = ResilientFTPClient(
+        replace(ftps_config(), file_extension_whitelist=())
+    )
+    client.ftp = RecordingFTP()
+
+    entries = client.list_directory("/")
+
+    assert [entry.name for entry in entries] == ["cover.jpg", "README"]

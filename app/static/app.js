@@ -338,7 +338,7 @@
     const form = event.currentTarget;
     const data = new FormData(form);
     const payload = {};
-    ["ftp_host", "ftp_protocol", "ftp_username", "ftp_root_path", "scan_schedule"].forEach((key) => {
+    ["ftp_host", "ftp_protocol", "ftp_username", "ftp_root_path", "file_extension_whitelist", "scan_schedule"].forEach((key) => {
       payload[key] = String(data.get(key) ?? "");
     });
     ["ftp_port", "ftp_timeout_seconds", "ftp_max_retries", "ftp_request_delay_ms", "default_results_per_page"].forEach((key) => {
@@ -359,6 +359,39 @@
       toast("Crawler settings saved");
     } catch (error) {
       toast(error.message, "error");
+    }
+  }
+
+  function closeResetDialog() {
+    const dialog = byId("reset-dialog");
+    dialog.close();
+    byId("reset-data-form").reset();
+    byId("reset-data-confirm").disabled = true;
+  }
+
+  async function resetAllData(event) {
+    event.preventDefault();
+    const confirmation = byId("reset-confirmation").value;
+    if (confirmation !== "DELETE") return;
+
+    const button = byId("reset-data-confirm");
+    button.disabled = true;
+    button.textContent = "Removing…";
+    try {
+      const result = await api("/api/data/reset", {
+        method: "POST",
+        body: JSON.stringify({ confirmation }),
+      });
+      closeResetDialog();
+      state.page = 1;
+      await Promise.all([runSearch(), loadDashboard(), loadLogs()]);
+      const removed = Object.values(result.deleted).reduce((total, value) => total + Number(value), 0);
+      toast(`Started over with an empty index (${formatNumber(removed)} records removed)`);
+    } catch (error) {
+      toast(error.message, "error");
+    } finally {
+      button.textContent = "Remove data and start over";
+      button.disabled = byId("reset-confirmation").value !== "DELETE";
     }
   }
 
@@ -479,6 +512,21 @@
     byId("scan-resume").addEventListener("click", () => scanAction("/api/scans/resume"));
     byId("log-level").addEventListener("change", loadLogs);
     byId("settings-form").addEventListener("submit", saveSettings);
+    byId("reset-data-open").addEventListener("click", () => {
+      byId("reset-data-form").reset();
+      byId("reset-data-confirm").disabled = true;
+      byId("reset-dialog").showModal();
+      byId("reset-confirmation").focus();
+    });
+    byId("reset-confirmation").addEventListener("input", (event) => {
+      byId("reset-data-confirm").disabled = event.target.value !== "DELETE";
+    });
+    byId("reset-data-form").addEventListener("submit", resetAllData);
+    byId("reset-dialog-close").addEventListener("click", closeResetDialog);
+    byId("reset-dialog-cancel").addEventListener("click", closeResetDialog);
+    byId("reset-dialog").addEventListener("click", (event) => {
+      if (event.target === byId("reset-dialog")) closeResetDialog();
+    });
     byId("dialog-close").addEventListener("click", () => byId("file-dialog").close());
     byId("file-dialog").addEventListener("click", (event) => {
       if (event.target === byId("file-dialog")) byId("file-dialog").close();
