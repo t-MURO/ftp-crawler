@@ -28,7 +28,7 @@ services:
       migrate:
         condition: service_completed_successfully
     ports:
-      - "${WEB_PORT:-8080}:8080"
+      - "${HOST_PORT:-11025}:8080"
     healthcheck:
       test:
         - CMD

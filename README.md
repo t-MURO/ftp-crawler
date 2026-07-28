@@ -27,7 +27,8 @@ The application is designed for large trees and TrueNAS SCALE:
    docker compose up -d --build
    ```
 
-5. Open `http://YOUR-TRUENAS-IP:8080`.
+5. Open `http://YOUR-TRUENAS-IP:11025` (or the `HOST_PORT` configured in
+   `.env`).
 6. Sign in with the administrator username and password configured in `.env`.
 7. Select **Start incremental scan**. The page will show the current directory,
    live statistics, and recent crawler events.
@@ -66,6 +67,8 @@ Copy `.env.example` to `.env` for a new installation. Important variables:
 | `FTP_TLS_VERIFY` | `true` | Verify the FTPS server certificate chain |
 | `SCAN_SCHEDULE` | `0 */6 * * *` | Standard five-field cron schedule; blank disables |
 | `DATABASE_URL` | `sqlite:////data/ftp-index.db` | Persistent index database |
+| `HOST_PORT` | `11025` | Port published by Docker on the TrueNAS host |
+| `WEB_PORT` | `8080` | Internal web service port; normally leave unchanged |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | optional | Local web administrator; blank password disables login |
 | `SESSION_SECRET` | required | Long random value used to sign sessions |
 | `SECURE_COOKIES` | `false` | Set `true` when the browser uses HTTPS |
