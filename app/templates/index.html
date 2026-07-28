@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} · {{ ftp_host }}{% endblock %}
+{% block body %}
+<div class="app-shell">
+  <aside class="sidebar" aria-label="Primary navigation">
+    <a class="brand" href="#overview" aria-label="Port Browser home">
+      <span class="brand-mark" aria-hidden="true">PB</span>
+      <span>
+        <strong>Port Browser</strong>
+        <small>FTP index</small>
+      </span>
+    </a>
+    <nav class="nav-list">
+      <a class="nav-item active" href="#overview">
+        <span aria-hidden="true">⌕</span> Search
+      </a>
+      <a class="nav-item" href="#insights">
+        <span aria-hidden="true">◫</span> Insights
+      </a>
+      <a class="nav-item" href="#activity">
+        <span aria-hidden="true">≋</span> Activity
+      </a>
+      <a class="nav-item" href="#settings">
+        <span aria-hidden="true">⚙</span> Settings
+      </a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="server-card">
+        <span class="server-pulse" id="server-pulse" aria-hidden="true"></span>
+        <span>
+          <small>INDEX TARGET</small>
+          <strong>{{ ftp_host }}</strong>
+        </span>
+      </div>
+      {% if auth_enabled %}
+      <form action="/logout" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="text-button" type="submit">Sign out · {{ username }}</button>
+      </form>
+      {% endif %}
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation">☰</button>
+      <div class="breadcrumb">
+        <span>LIBRARY</span>
+        <strong>{{ ftp_host }}</strong>
+      </div>
+      <div class="topbar-actions">
+        <span class="status-chip" id="header-status">
+          <i aria-hidden="true"></i>
+          <span>Checking crawler</span>
+        </span>
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle dark mode">
+          <span class="theme-light" aria-hidden="true">☼</span>
+          <span class="theme-dark" aria-hidden="true">☾</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="content">
+      <section class="hero" id="overview">
+        <div class="hero-heading">
+          <div>
+            <p class="eyebrow">YOUR REMOTE LIBRARY, INDEXED</p>
+            <h1>Find the file.<br><em>Skip the crawl.</em></h1>
+          </div>
+          <p class="hero-intro">
+            Search every indexed filename and folder instantly—without waiting
+            for an FTP client to traverse the server.
+          </p>
+        </div>
+        <form class="hero-search" id="hero-search" role="search">
+          <span class="search-glyph" aria-hidden="true">⌕</span>
+          <input
+            id="hero-query"
+            type="search"
+            placeholder="Search tracks, releases, folders…"
+            autocomplete="off"
+            aria-label="Search filenames and paths"
+          >
+          <kbd>⌘ K</kbd>
+          <button type="submit">Search</button>
+        </form>
+        <div class="quick-row">
+          <span>Searches filenames + complete remote paths</span>
+          <span class="index-updated" id="index-updated">No completed scan yet</span>
+        </div>
+      </section>
+
+      <section class="stats-grid" aria-label="Index statistics">
+        <article class="stat-card stat-primary">
+          <span class="stat-label">AVAILABLE FILES</span>
+          <strong id="stat-files">—</strong>
+          <small id="stat-unavailable">Loading index…</small>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">DIRECTORIES</span>
+          <strong id="stat-directories">—</strong>
+          <small>Indexed remote folders</small>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">LIBRARY SIZE</span>
+          <strong id="stat-size">—</strong>
+          <small>Metadata-reported total</small>
+        </article>
+        <article class="stat-card crawler-summary">
+          <div class="stat-card-top">
+            <span class="stat-label">CRAWLER</span>
+            <span class="mini-status" id="crawler-mini-status">IDLE</span>
+          </div>
+          <strong id="crawler-current">Waiting for a scan</strong>
+          <small id="crawler-progress-copy">Ready when you are</small>
+          <div class="progress-track" aria-hidden="true">
+            <span id="crawler-progress-bar"></span>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel results-panel" aria-labelledby="results-title">
+        <div class="panel-head results-head">
+          <div>
+            <p class="eyebrow">FILE INDEX</p>
+            <h2 id="results-title">Browse the catalog</h2>
+          </div>
+          <div class="result-count" aria-live="polite">
+            <strong id="result-total">0</strong>
+            <span>matches</span>
+          </div>
+        </div>
+
+        <form class="search-toolbar" id="search-form">
+          <label class="toolbar-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="query" name="q" type="search" placeholder="Filter the index">
+          </label>
+          <button class="button button-secondary" id="filters-toggle" type="button" aria-expanded="false">
+            Filters <span id="filter-count" class="filter-count hidden">0</span>
+          </button>
+          <label class="compact-select">
+            <span>Show</span>
+            <select id="per-page" name="per_page" aria-label="Results per page">
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+          </label>
+        </form>
+
+        <form class="filter-panel hidden" id="filter-panel">
+          <label>
+            Extension
+            <input id="extension" name="extension" placeholder="mp3">
+          </label>
+          <label>
+            Directory
+            <input id="directory" name="directory" placeholder="/releases/2026">
+          </label>
+          <label>
+            Minimum size
+            <input id="min-size" name="min_size" type="number" min="0" placeholder="Bytes">
+          </label>
+          <label>
+            Maximum size
+            <input id="max-size" name="max_size" type="number" min="0" placeholder="Bytes">
+          </label>
+          <label>
+            Modified after
+            <input id="modified-from" name="modified_from" type="date">
+          </label>
+          <label>
+            Modified before
+            <input id="modified-to" name="modified_to" type="date">
+          </label>
+          <label>
+            Status
+            <select id="file-status" name="status">
+              <option value="available">Available</option>
+              <option value="all">All files</option>
+              <option value="deleted">Unavailable</option>
+            </select>
+          </label>
+          <div class="filter-actions">
+            <button class="text-button" id="clear-filters" type="button">Clear filters</button>
+            <button class="button button-primary" type="submit">Apply</button>
+          </div>
+        </form>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><button class="sort-button active" data-sort="filename" type="button">Filename <span>↑</span></button></th>
+                <th><button class="sort-button" data-sort="path" type="button">Remote path <span>↕</span></button></th>
+                <th><button class="sort-button" data-sort="size" type="button">Size <span>↕</span></button></th>
+                <th><button class="sort-button" data-sort="modified" type="button">Modified <span>↕</span></button></th>
+                <th>Status</th>
+                <th><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="results-body">
+              <tr class="loading-row">
+                <td colspan="6"><span class="loader"></span> Loading the index…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination">
+          <span id="page-summary">Page 1 of 1</span>
+          <div>
+            <button class="icon-button" id="page-prev" type="button" aria-label="Previous page">←</button>
+            <div id="page-buttons" class="page-buttons"></div>
+            <button class="icon-button" id="page-next" type="button" aria-label="Next page">→</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="two-column" id="insights">
+        <article class="panel extension-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">LIBRARY MIX</p>
+              <h2>Top file types</h2>
+            </div>
+          </div>
+          <div class="extension-chart" id="extension-chart">
+            <div class="chart-empty">Extension data appears after the first scan.</div>
+          </div>
+        </article>
+
+        <article class="panel control-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">CRAWLER CONTROL</p>
+              <h2>Keep the index fresh</h2>
+            </div>
+            <span class="status-chip" id="control-status"><i></i><span>Idle</span></span>
+          </div>
+          <div class="scan-location">
+            <small>CURRENT FOLDER</small>
+            <code id="scan-directory">No scan in progress</code>
+          </div>
+          <div class="scan-stat-row">
+            <span><small>DURATION</small><strong id="scan-duration">—</strong></span>
+            <span><small>FOLDERS</small><strong id="scan-folders">—</strong></span>
+            <span><small>FAILED</small><strong id="scan-failed">—</strong></span>
+          </div>
+          <div class="scan-actions">
+            <button class="button button-primary" id="scan-incremental" type="button">Start incremental scan</button>
+            <button class="button button-secondary" id="scan-full" type="button">Full rescan</button>
+            <button class="button button-danger hidden" id="scan-stop" type="button">Stop safely</button>
+            <button class="button button-secondary hidden" id="scan-resume" type="button">Resume scan</button>
+          </div>
+          <p class="control-note">Scans index metadata only. File contents are never downloaded.</p>
+        </article>
+      </section>
+
+      <section class="panel activity-panel" id="activity">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">CRAWLER ACTIVITY</p>
+            <h2>Recent events</h2>
+          </div>
+          <select id="log-level" aria-label="Filter log level">
+            <option value="">All levels</option>
+            <option value="INFO">Info</option>
+            <option value="WARNING">Warnings</option>
+            <option value="ERROR">Errors</option>
+          </select>
+        </div>
+        <div class="log-list" id="log-list">
+          <div class="chart-empty">No crawler events yet.</div>
+        </div>
+      </section>
+
+      <section class="panel settings-panel" id="settings">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">CONNECTION & SCHEDULE</p>
+            <h2>Crawler settings</h2>
+          </div>
+          <span class="saved-indicator" id="settings-saved">Environment password protected</span>
+        </div>
+        <form id="settings-form" class="settings-form">
+          <label>
+            Server
+            <input name="ftp_host" required>
+          </label>
+          <label>
+            Port
+            <input name="ftp_port" type="number" min="1" max="65535" required>
+          </label>
+          <label>
+            Protocol
+            <select name="ftp_protocol">
+              <option value="ftp">FTP</option>
+              <option value="ftps">FTPS</option>
+            </select>
+          </label>
+          <label>
+            Username
+            <input name="ftp_username" autocomplete="off">
+          </label>
+          <label class="settings-wide">
+            Root path
+            <input name="ftp_root_path" placeholder="/">
+          </label>
+          <label class="settings-wide">
+            Automatic scan schedule
+            <input name="scan_schedule" placeholder="0 */6 * * *">
+            <small>Cron format. Leave blank to disable.</small>
+          </label>
+          <label>
+            Timeout (seconds)
+            <input name="ftp_timeout_seconds" type="number" min="5" max="600">
+          </label>
+          <label>
+            Retry limit
+            <input name="ftp_max_retries" type="number" min="0" max="20">
+          </label>
+          <label>
+            Request delay (ms)
+            <input name="ftp_request_delay_ms" type="number" min="0" max="60000">
+          </label>
+          <label>
+            Default page size
+            <select name="default_results_per_page">
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+          </label>
+          <label class="check-label">
+            <input name="ftp_passive_mode" type="checkbox">
+            <span>Use passive FTP mode</span>
+          </label>
+          <label class="check-label">
+            <input name="music_filename_parsing" type="checkbox">
+            <span>Infer music metadata from names</span>
+          </label>
+          <label class="check-label">
+            <input name="enable_direct_ftp_links" type="checkbox">
+            <span>Show direct FTP links</span>
+          </label>
+          <div class="settings-submit">
+            <p>The FTP password is accepted only through the protected environment file and is never returned here.</p>
+            <button class="button button-primary" type="submit">Save settings</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
+</div>
+
+<dialog class="file-dialog" id="file-dialog">
+  <div class="dialog-head">
+    <span class="file-icon" aria-hidden="true">♪</span>
+    <div>
+      <p class="eyebrow">FILE DETAILS</p>
+      <h2 id="dialog-filename">File</h2>
+    </div>
+    <button class="icon-button" id="dialog-close" type="button" aria-label="Close">×</button>
+  </div>
+  <div id="dialog-content"></div>
+</dialog>
+
+<div class="toast-region" id="toast-region" aria-live="polite"></div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', path='/app.js') }}" defer></script>
+{% endblock %}

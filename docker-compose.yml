@@ -1,0 +1,61 @@
+name: port-browser-indexer
+
+x-port-browser: &port-browser
+  image: port-browser:local
+  env_file:
+    - .env
+  volumes:
+    - port_browser_data:/data
+    - port_browser_config:/config
+    - port_browser_logs:/logs
+  init: true
+
+services:
+  migrate:
+    <<: *port-browser
+    command: ["alembic", "upgrade", "head"]
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  web:
+    <<: *port-browser
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.run_web"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+
+  crawler:
+    <<: *port-browser
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 90s
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+volumes:
+  port_browser_data:
+    name: port-browser-indexer-data
+  port_browser_config:
+    name: port-browser-indexer-config
+  port_browser_logs:
+    name: port-browser-indexer-logs

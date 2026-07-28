@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>{% block title %}Port Browser{% endblock %}</title>
+    <meta
+      name="description"
+      content="A fast, private search index for large FTP and FTPS servers."
+    >
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+  </head>
+  <body
+    data-csrf-token="{{ csrf_token | default('') }}"
+    data-default-per-page="{{ default_results_per_page | default(50) }}"
+  >
+    {% block body %}{% endblock %}
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

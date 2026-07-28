@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Port Browser{% endblock %}
+{% block body %}
+<main class="login-shell">
+  <section class="login-card" aria-labelledby="login-title">
+    <div class="brand brand-login">
+      <span class="brand-mark" aria-hidden="true">PB</span>
+      <span>
+        <strong>Port Browser</strong>
+        <small>Private FTP index</small>
+      </span>
+    </div>
+    <div class="login-copy">
+      <p class="eyebrow">SECURE ACCESS</p>
+      <h1 id="login-title">Welcome back.</h1>
+      <p>Sign in to search the index and manage crawler activity.</p>
+    </div>
+    {% if error %}
+      <div class="alert alert-error" role="alert">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/login" class="login-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>
+        Username
+        <input
+          name="username"
+          type="text"
+          autocomplete="username"
+          required
+          autofocus
+        >
+      </label>
+      <label>
+        Password
+        <input
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          required
+        >
+      </label>
+      <button class="button button-primary button-wide" type="submit">
+        Sign in
+        <span aria-hidden="true">→</span>
+      </button>
+    </form>
+  </section>
+  <aside class="login-aside" aria-hidden="true">
+    <div class="signal-grid"></div>
+    <div class="login-aside-copy">
+      <span>REMOTE CATALOG</span>
+      <strong>Search the server.<br>Skip the waiting.</strong>
+      <p>Metadata only. No file contents are downloaded.</p>
+    </div>
+  </aside>
+</main>
+{% endblock %}
