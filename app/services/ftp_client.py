@@ -57,6 +57,22 @@ def parse_ftp_timestamp(value: str | None) -> datetime | None:
     return None
 
 
+class SessionReusingFTP_TLS(ftplib.FTP_TLS):
+    """Explicit FTPS client that reuses the control TLS session for data sockets."""
+
+    def ntransfercmd(self, cmd: str, rest: str | None = None):
+        connection, size = ftplib.FTP.ntransfercmd(self, cmd, rest)
+        if not self._prot_p:
+            return connection, size
+
+        wrap_options: dict[str, object] = {"server_hostname": self.host}
+        session = getattr(self.sock, "session", None)
+        if session is not None:
+            wrap_options["session"] = session
+        connection = self.context.wrap_socket(connection, **wrap_options)
+        return connection, size
+
+
 class ResilientFTPClient:
     def __init__(
         self,
@@ -80,7 +96,7 @@ class ResilientFTPClient:
                 if self.config.ftp_tls_verify
                 else ssl._create_unverified_context()
             )
-            ftp: ftplib.FTP | ftplib.FTP_TLS = ftplib.FTP_TLS(
+            ftp: ftplib.FTP | ftplib.FTP_TLS = SessionReusingFTP_TLS(
                 timeout=self.config.ftp_timeout_seconds,
                 context=context,
                 encoding="utf-8",
@@ -147,11 +163,15 @@ class ResilientFTPClient:
         path = normalize_remote_path(path)
         if not is_within_root(path, self.config.ftp_root_path):
             raise ValueError("Refusing to scan outside the configured FTP root")
+        command_path = path if path == "/" else path.lstrip("/")
 
         def operation(ftp: ftplib.FTP) -> list[RemoteEntry]:
             entries: list[RemoteEntry] = []
-            for name, facts in ftp.mlsd(path, facts=["type", "size", "modify"]):
-                if name in {".", ".."}:
+            for name, facts in ftp.mlsd(
+                command_path,
+                facts=["type", "size", "modify"],
+            ):
+                if not name or name in {".", ".."}:
                     continue
                 remote_path = join_remote_path(path, name)
                 kind = str(facts.get("type", "")).lower()
