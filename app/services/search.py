@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
 from urllib.parse import quote
 
 from sqlalchemy import text
@@ -33,8 +34,10 @@ def _serialize_datetime(value) -> str | None:
     return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
-def _direct_url(remote_path: str, db: Session) -> str | None:
-    values = effective_settings(db)
+def _direct_url(
+    remote_path: str,
+    values: Mapping[str, object],
+) -> str | None:
     if not values["enable_direct_ftp_links"]:
         return None
     protocol = str(values["ftp_protocol"])
@@ -121,13 +124,17 @@ def search_files(db: Session, params: SearchParams) -> dict[str, object]:
         ),
         {**values, "limit": per_page, "offset": offset},
     ).mappings()
+    direct_link_settings = effective_settings(db)
 
     items: list[dict[str, object]] = []
     for row in rows:
         item = dict(row)
         for key in ("modified_at", "first_seen_at", "last_seen_at"):
             item[key] = _serialize_datetime(item[key])
-        item["direct_url"] = _direct_url(str(item["remote_path"]), db)
+        item["direct_url"] = _direct_url(
+            str(item["remote_path"]),
+            direct_link_settings,
+        )
         items.append(item)
 
     return {
@@ -155,5 +162,8 @@ def get_file_detail(db: Session, file_id: int) -> dict[str, object] | None:
     item = dict(row)
     for key in ("modified_at", "first_seen_at", "last_seen_at"):
         item[key] = _serialize_datetime(item[key])
-    item["direct_url"] = _direct_url(str(item["remote_path"]), db)
+    item["direct_url"] = _direct_url(
+        str(item["remote_path"]),
+        effective_settings(db),
+    )
     return item

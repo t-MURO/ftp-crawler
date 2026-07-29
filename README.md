@@ -110,6 +110,10 @@ Search uses SQLite FTS5 with Unicode tokenization and prefix matching. For
 example, `deep ant` finds `Deep Anthem.mp3`. Searches cover the filename,
 parent directory, and complete remote path.
 
+Database migrations rebuild and optimize the FTS index in place when needed
+and add case-insensitive sort indexes. These upgrades preserve indexed files,
+directory records, scan history, and resumable crawler queue state.
+
 Available filters:
 
 - extension;
@@ -191,17 +195,22 @@ docker compose ps
 docker compose logs --tail=100 web crawler
 ```
 
-Apply a future migration after updating the source:
+Update an existing installation without deleting its index or crawl progress:
 
 ```bash
-docker compose run --rm migrate
-```
-
-Rebuild and restart:
-
-```bash
+docker compose stop web crawler
+git pull origin main
 docker compose up -d --build
 ```
+
+The `migrate` service upgrades the existing database in place before the new
+web and crawler containers start. An interrupted running scan is returned to
+the durable queue and resumes after startup. During an update, do not use the
+**Remove all data** action or remove named volumes with `docker compose down -v`.
+
+The first startup with migration `0002_search_performance` may take longer than
+normal while SQLite rebuilds the FTS index and creates sort indexes. It does not
+delete catalog rows, scan history, or pending directories.
 
 ## Local development and tests
 

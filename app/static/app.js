@@ -436,7 +436,8 @@
       heroQuery.value = state.q;
       state.page = 1;
       window.clearTimeout(debounceTimer);
-      debounceTimer = window.setTimeout(() => runSearch(), 250);
+      if (state.q.length === 1) return;
+      debounceTimer = window.setTimeout(() => runSearch(), 500);
     });
     byId("search-form").addEventListener("submit", (event) => {
       event.preventDefault();
