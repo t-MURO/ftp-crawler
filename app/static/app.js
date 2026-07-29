@@ -148,8 +148,8 @@
         ? `<a class="row-action" href="${escapeHtml(item.direct_url)}" aria-label="Open FTP link" title="Open FTP link">↗</a>`
         : "";
       return `
-        <tr>
-          <td>
+        <tr class="result-row">
+          <td class="file-column">
             <div class="file-cell">
               <span class="file-icon" aria-hidden="true">${icon}</span>
               <div>
@@ -158,14 +158,29 @@
               </div>
             </div>
           </td>
-          <td class="path-cell" title="${escapeHtml(item.remote_path)}">${highlight(item.parent_directory)}</td>
-          <td>${formatBytes(item.size)}</td>
-          <td>${formatDate(item.modified_at)}</td>
-          <td>${status}</td>
-          <td>
+          <td class="path-cell" title="${escapeHtml(item.remote_path)}">
+            <span class="cell-label">Folder</span>
+            <span class="path-value">${highlight(item.parent_directory)}</span>
+          </td>
+          <td class="size-cell">
+            <span class="cell-label">Size</span>
+            <span>${formatBytes(item.size)}</span>
+          </td>
+          <td class="modified-cell">
+            <span class="cell-label">Modified</span>
+            <span>${formatDate(item.modified_at)}</span>
+          </td>
+          <td class="status-cell">
+            <span class="cell-label">Status</span>
+            ${status}
+          </td>
+          <td class="actions-cell">
             <div class="row-actions">
               <button class="row-action" type="button" data-copy-name="${escapeHtml(item.filename)}" aria-label="Copy filename" title="Copy filename">N</button>
-              <button class="row-action" type="button" data-copy-path="${escapeHtml(item.remote_path)}" aria-label="Copy FTP path" title="Copy FTP path">⌘</button>
+              <button class="row-action row-action-labeled" type="button" data-copy-path="${escapeHtml(item.remote_path)}" aria-label="Copy FTP path" title="Copy FTP path">
+                <span aria-hidden="true">⌘</span>
+                <span>Copy path</span>
+              </button>
               ${direct}
             </div>
           </td>
