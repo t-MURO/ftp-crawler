@@ -86,6 +86,18 @@ def test_search_upgrade_preserves_catalog_and_resumable_scan(
                 )
                 == 1
             )
+            assert (
+                connection.scalar(
+                    text("SELECT v FROM file_search_config WHERE k = 'automerge'")
+                )
+                == 2
+            )
+            assert (
+                connection.scalar(
+                    text("SELECT v FROM file_search_config WHERE k = 'crisismerge'")
+                )
+                == 8
+            )
             plan = [
                 row[3]
                 for row in connection.execute(

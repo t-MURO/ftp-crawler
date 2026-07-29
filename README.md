@@ -110,9 +110,10 @@ Search uses SQLite FTS5 with Unicode tokenization and prefix matching. For
 example, `deep ant` finds `Deep Anthem.mp3`. Searches cover the filename,
 parent directory, and complete remote path.
 
-Database migrations rebuild and optimize the FTS index in place when needed
-and add case-insensitive sort indexes. These upgrades preserve indexed files,
-directory records, scan history, and resumable crawler queue state.
+Database migrations rebuild and compact the FTS index in place when needed,
+keep new index segments merged during long crawls, and add case-insensitive
+sort indexes. These upgrades preserve indexed files, directory records, scan
+history, and resumable crawler queue state.
 
 Available filters:
 

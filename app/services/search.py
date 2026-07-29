@@ -103,32 +103,81 @@ def search_files(db: Session, params: SearchParams) -> dict[str, object]:
         values["available"] = params.status == "available"
 
     where_sql = f" WHERE {' AND '.join(where)}" if where else ""
-    total = db.execute(
-        text(f"SELECT COUNT(*) FROM files f {join} {where_sql}"),
-        values,
-    ).scalar_one()
-    pages = max(1, math.ceil(total / per_page))
-    page = min(params.page, pages)
-    offset = (page - 1) * per_page
     sort_column = SORT_COLUMNS[params.sort]
     order = "DESC" if params.order == "desc" else "ASC"
-    rows = db.execute(
-        text(
-            "SELECT f.id, f.remote_path, f.filename, f.parent_directory, "
-            "f.extension, f.size, f.modified_at, f.first_seen_at, f.last_seen_at, "
-            "f.available, f.artist, f.track_title, f.version, f.release_year, "
-            "f.label, f.catalog_number "
-            f"FROM files f {join} {where_sql} "
-            f"ORDER BY {sort_column} {order}, f.id ASC "
-            "LIMIT :limit OFFSET :offset"
-        ),
-        {**values, "limit": per_page, "offset": offset},
-    ).mappings()
+    select_fields = (
+        "f.id, f.remote_path, f.filename, f.parent_directory, "
+        "f.extension, f.size, f.modified_at, f.first_seen_at, f.last_seen_at, "
+        "f.available, f.artist, f.track_title, f.version, f.release_year, "
+        "f.label, f.catalog_number"
+    )
+
+    if fts_query:
+        requested_page = params.page
+        offset = (requested_page - 1) * per_page
+        rows = db.execute(
+            text(
+                f"SELECT {select_fields}, COUNT(*) OVER() AS result_total "
+                f"FROM files f {join} {where_sql} "
+                f"ORDER BY {sort_column} {order}, f.id ASC "
+                "LIMIT :limit OFFSET :offset"
+            ),
+            {**values, "limit": per_page, "offset": offset},
+        ).mappings().all()
+        if rows:
+            total = int(rows[0]["result_total"])
+            pages = max(1, math.ceil(total / per_page))
+            page = min(requested_page, pages)
+        elif requested_page == 1:
+            total = 0
+            pages = 1
+            page = 1
+        else:
+            total = db.execute(
+                text(f"SELECT COUNT(*) FROM files f {join} {where_sql}"),
+                values,
+            ).scalar_one()
+            pages = max(1, math.ceil(total / per_page))
+            page = min(requested_page, pages)
+            rows = db.execute(
+                text(
+                    f"SELECT {select_fields}, COUNT(*) OVER() AS result_total "
+                    f"FROM files f {join} {where_sql} "
+                    f"ORDER BY {sort_column} {order}, f.id ASC "
+                    "LIMIT :limit OFFSET :offset"
+                ),
+                {
+                    **values,
+                    "limit": per_page,
+                    "offset": (page - 1) * per_page,
+                },
+            ).mappings().all()
+    else:
+        total = db.execute(
+            text(f"SELECT COUNT(*) FROM files f {join} {where_sql}"),
+            values,
+        ).scalar_one()
+        pages = max(1, math.ceil(total / per_page))
+        page = min(params.page, pages)
+        rows = db.execute(
+            text(
+                f"SELECT {select_fields} "
+                f"FROM files f {join} {where_sql} "
+                f"ORDER BY {sort_column} {order}, f.id ASC "
+                "LIMIT :limit OFFSET :offset"
+            ),
+            {
+                **values,
+                "limit": per_page,
+                "offset": (page - 1) * per_page,
+            },
+        ).mappings().all()
     direct_link_settings = effective_settings(db)
 
     items: list[dict[str, object]] = []
     for row in rows:
         item = dict(row)
+        item.pop("result_total", None)
         for key in ("modified_at", "first_seen_at", "last_seen_at"):
             item[key] = _serialize_datetime(item[key])
         item["direct_url"] = _direct_url(

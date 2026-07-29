@@ -407,5 +407,5 @@
 <div class="toast-region" id="toast-region" aria-live="polite"></div>
 {% endblock %}
 {% block scripts %}
-<script src="{{ url_for('static', path='/app.js') }}" defer></script>
+<script src="{{ url_for('static', path='/app.js') }}?v={{ static_version }}" defer></script>
 {% endblock %}

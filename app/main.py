@@ -19,6 +19,7 @@ from app.config import get_settings
 from app.database import SessionLocal, get_db
 from app.models import CrawlLog, ScanRun, utcnow
 from app.schemas import DataResetRequest, ScanCreate, SearchParams, SettingsUpdate
+from app.services.assets import static_asset_version
 from app.services.crawler import continue_scan, create_scan, write_crawl_log
 from app.services.dashboard import dashboard_stats, scan_to_dict
 from app.services.data_reset import ActiveScanError, reset_crawl_data
@@ -36,6 +37,7 @@ from app.services.settings import effective_settings, public_crawler_config, sav
 settings = get_settings()
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+templates.env.globals["static_version"] = static_asset_version(BASE_DIR / "static")
 
 
 @asynccontextmanager

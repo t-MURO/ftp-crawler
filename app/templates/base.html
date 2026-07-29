@@ -9,7 +9,7 @@
       name="description"
       content="A fast, private search index for large FTP and FTPS servers."
     >
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v={{ static_version }}">
   </head>
   <body
     data-csrf-token="{{ csrf_token | default('') }}"

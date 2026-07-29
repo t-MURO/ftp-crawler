@@ -129,3 +129,50 @@ def test_search_loads_link_settings_once_per_page() -> None:
     assert len(statements) == 3
     assert sum("app_settings" in statement for statement in statements) == 1
     db.close()
+
+
+def test_fts_search_gets_count_and_page_in_one_search_query() -> None:
+    db = make_session()
+    now = datetime.now(UTC)
+    db.add_all(
+        [
+            FileEntry(
+                remote_path=f"/music/Anetha Track {index}.mp3",
+                filename=f"Anetha Track {index}.mp3",
+                parent_directory="/music",
+                extension="mp3",
+                size=index,
+                first_seen_at=now,
+                last_seen_at=now,
+                available=True,
+                scan_token="scan-1",
+            )
+            for index in range(12)
+        ]
+    )
+    db.commit()
+
+    statements: list[str] = []
+
+    def record_statement(
+        _connection,
+        _cursor,
+        statement,
+        _parameters,
+        _context,
+        _executemany,
+    ) -> None:
+        statements.append(statement)
+
+    event.listen(db.bind, "before_cursor_execute", record_statement)
+    try:
+        result = search_files(db, SearchParams(q="anetha", per_page=10))
+    finally:
+        event.remove(db.bind, "before_cursor_execute", record_statement)
+
+    search_statements = [statement for statement in statements if "file_search" in statement]
+    assert result["total"] == 12
+    assert len(result["items"]) == 10
+    assert len(search_statements) == 1
+    assert "COUNT(*) OVER()" in search_statements[0]
+    db.close()
