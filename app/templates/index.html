@@ -241,7 +241,7 @@
             <span class="status-chip" id="control-status"><i></i><span>Idle</span></span>
           </div>
           <div class="scan-location">
-            <small>CURRENT FOLDER</small>
+            <small id="scan-location-label">CURRENT FOLDER</small>
             <code id="scan-directory">No scan in progress</code>
           </div>
           <div class="scan-stat-row">
@@ -253,9 +253,9 @@
             <button class="button button-primary" id="scan-incremental" type="button">Start incremental scan</button>
             <button class="button button-secondary" id="scan-full" type="button">Full rescan</button>
             <button class="button button-danger hidden" id="scan-stop" type="button">Stop safely</button>
-            <button class="button button-secondary hidden" id="scan-resume" type="button">Resume scan</button>
+            <button class="button button-primary hidden" id="scan-resume" type="button">Continue scan</button>
           </div>
-          <p class="control-note">Scans index metadata only. File contents are never downloaded.</p>
+          <p class="control-note" id="scan-note">Each completed folder is saved so an interrupted scan can continue without starting over.</p>
         </article>
       </section>
 

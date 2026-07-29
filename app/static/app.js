@@ -274,8 +274,14 @@
     byId("scan-full").disabled = active;
     byId("scan-stop").classList.toggle("hidden", !active);
     byId("scan-resume").classList.toggle("hidden", !resumable);
-    byId("crawler-current").textContent = scan?.current_directory || (active ? "Connecting…" : "Waiting for a scan");
-    byId("scan-directory").textContent = scan?.current_directory || "No scan in progress";
+    byId("scan-location-label").textContent = resumable ? "SAVED CHECKPOINT" : "CURRENT FOLDER";
+    byId("crawler-current").textContent = scan?.current_directory
+      || (resumable ? "Progress saved — ready to continue" : active ? "Connecting…" : "Waiting for a scan");
+    byId("scan-directory").textContent = scan?.current_directory
+      || (resumable ? "Saved queue is ready" : "No scan in progress");
+    byId("scan-note").textContent = resumable
+      ? "Completed folders are preserved. Continue uses the saved queue and does not rescan them."
+      : "Each completed folder is saved so an interrupted scan can continue without starting over.";
     byId("crawler-progress-copy").textContent = scan
       ? `${formatNumber(scan.directories_scanned)} / ${formatNumber(scan.directories_queued)} folders`
       : "Ready when you are";
@@ -525,7 +531,7 @@
     byId("scan-incremental").addEventListener("click", () => scanAction("/api/scans", { mode: "incremental" }));
     byId("scan-full").addEventListener("click", () => scanAction("/api/scans", { mode: "full" }));
     byId("scan-stop").addEventListener("click", () => scanAction("/api/scans/stop"));
-    byId("scan-resume").addEventListener("click", () => scanAction("/api/scans/resume"));
+    byId("scan-resume").addEventListener("click", () => scanAction("/api/scans/continue"));
     byId("log-level").addEventListener("change", loadLogs);
     byId("settings-form").addEventListener("submit", saveSettings);
     byId("reset-data-open").addEventListener("click", () => {

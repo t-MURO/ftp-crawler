@@ -139,8 +139,10 @@ This is necessary because standard FTP provides no reliable server-wide change
 feed.
 
 Directories that cannot be accessed are logged and skipped so one permission
-problem does not abort the entire tree. A fatal failure leaves remaining queue
-records intact and exposes **Resume scan**.
+problem does not abort the entire tree. A fatal failure records the next
+unfinished folder, leaves the remaining queue intact, and exposes
+**Continue scan**. Continuing reuses the same scan and skips every folder
+already marked complete.
 
 The crawler requires `MLSD`, which is supported by modern FTP servers. A server
 that only supports legacy `LIST` will log an error for each inaccessible
@@ -159,7 +161,7 @@ Main endpoints:
 - `GET /api/scans/status`
 - `POST /api/scans`
 - `POST /api/scans/stop`
-- `POST /api/scans/resume`
+- `POST /api/scans/continue`
 - `GET /api/logs`
 - `GET /api/settings`
 - `PUT /api/settings`

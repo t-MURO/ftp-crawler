@@ -8,7 +8,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select, text, update
+from sqlalchemy import select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
@@ -17,9 +17,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app import __version__
 from app.config import get_settings
 from app.database import SessionLocal, get_db
-from app.models import CrawlLog, ScanDirectory, ScanRun, utcnow
+from app.models import CrawlLog, ScanRun, utcnow
 from app.schemas import DataResetRequest, ScanCreate, SearchParams, SettingsUpdate
-from app.services.crawler import create_scan, write_crawl_log
+from app.services.crawler import continue_scan, create_scan, write_crawl_log
 from app.services.dashboard import dashboard_stats, scan_to_dict
 from app.services.data_reset import ActiveScanError, reset_crawl_data
 from app.services.search import get_file_detail, search_files
@@ -260,37 +260,18 @@ def api_stop_scan(
     return {"scan": scan_to_dict(scan)}
 
 
-@app.post("/api/scans/resume", tags=["crawler"])
-def api_resume_scan(
+@app.post("/api/scans/resume", include_in_schema=False)
+@app.post("/api/scans/continue", tags=["crawler"])
+def api_continue_scan(
     request: Request,
     db: Session = Depends(get_db),
     _user: str = Depends(require_authenticated),
 ):
     require_csrf(request)
-    active = db.scalar(
-        select(ScanRun).where(ScanRun.status.in_(["queued", "running", "stopping"]))
-    )
-    if active:
-        raise HTTPException(409, "A scan is already queued or running")
-    scan = db.scalar(
-        select(ScanRun)
-        .where(ScanRun.status.in_(["stopped", "failed"]))
-        .order_by(ScanRun.queued_at.desc())
-    )
-    if scan is None:
-        raise HTTPException(409, "There is no stopped or failed scan to resume")
-    db.execute(
-        update(ScanDirectory)
-        .where(ScanDirectory.scan_id == scan.id, ScanDirectory.status == "in_progress")
-        .values(status="pending", updated_at=utcnow())
-    )
-    scan.status = "queued"
-    scan.stop_requested = False
-    scan.finished_at = None
-    scan.error_message = None
-    scan.queued_at = utcnow()
-    write_crawl_log(db, scan.id, "INFO", "Scan resume requested.", commit=False)
-    db.commit()
+    try:
+        scan = continue_scan(db)
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
     return {"scan": scan_to_dict(scan)}
 
 

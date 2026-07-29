@@ -100,6 +100,60 @@ def create_scan(db: Session, mode: str, source: str = "manual") -> ScanRun:
     return scan
 
 
+def save_scan_checkpoint(db: Session, scan: ScanRun) -> str | None:
+    """Return in-progress work to the queue and persist the next folder to scan."""
+    db.execute(
+        update(ScanDirectory)
+        .where(
+            ScanDirectory.scan_id == scan.id,
+            ScanDirectory.status == "in_progress",
+        )
+        .values(status="pending", updated_at=utcnow())
+    )
+    checkpoint = db.scalar(
+        select(ScanDirectory.path)
+        .where(
+            ScanDirectory.scan_id == scan.id,
+            ScanDirectory.status.in_(["pending", "error"]),
+        )
+        .order_by(ScanDirectory.id)
+        .limit(1)
+    )
+    scan.current_directory = checkpoint
+    return checkpoint
+
+
+def continue_scan(db: Session) -> ScanRun:
+    active = db.scalar(
+        select(ScanRun).where(ScanRun.status.in_(["queued", "running", "stopping"]))
+    )
+    if active:
+        raise RuntimeError("A scan is already queued or running")
+
+    scan = db.scalar(
+        select(ScanRun)
+        .where(ScanRun.status.in_(["stopped", "failed"]))
+        .order_by(ScanRun.queued_at.desc())
+    )
+    if scan is None:
+        raise RuntimeError("There is no stopped or failed scan to continue")
+
+    checkpoint = save_scan_checkpoint(db, scan)
+    scan.status = "queued"
+    scan.stop_requested = False
+    scan.finished_at = None
+    scan.error_message = None
+    scan.queued_at = utcnow()
+    message = (
+        f"Continue requested from saved checkpoint {checkpoint}."
+        if checkpoint
+        else "Continue requested; preparing the saved scan queue."
+    )
+    write_crawl_log(db, scan.id, "INFO", message, checkpoint, commit=False)
+    db.commit()
+    return scan
+
+
 class CrawlerWorker:
     def __init__(self) -> None:
         self.settings = get_settings()
@@ -123,14 +177,7 @@ class CrawlerWorker:
                 select(ScanRun).where(ScanRun.status.in_(["running", "stopping"]))
             ).all()
             for scan in interrupted:
-                db.execute(
-                    update(ScanDirectory)
-                    .where(
-                        ScanDirectory.scan_id == scan.id,
-                        ScanDirectory.status == "in_progress",
-                    )
-                    .values(status="pending")
-                )
+                checkpoint = save_scan_checkpoint(db, scan)
                 scan.status = "queued"
                 scan.stop_requested = False
                 scan.error_message = "Recovered after worker restart"
@@ -138,7 +185,12 @@ class CrawlerWorker:
                     db,
                     scan.id,
                     "WARNING",
-                    "Worker restarted; the unfinished scan will resume.",
+                    (
+                        f"Worker restarted; resuming from saved checkpoint {checkpoint}."
+                        if checkpoint
+                        else "Worker restarted; the saved scan queue will resume."
+                    ),
+                    checkpoint,
                     commit=False,
                 )
 
@@ -296,23 +348,20 @@ class CrawlerWorker:
             with session_scope() as db:
                 scan = db.get(ScanRun, scan_id)
                 if scan:
-                    db.execute(
-                        update(ScanDirectory)
-                        .where(
-                            ScanDirectory.scan_id == scan.id,
-                            ScanDirectory.status == "in_progress",
-                        )
-                        .values(status="pending", updated_at=utcnow())
-                    )
+                    checkpoint = save_scan_checkpoint(db, scan)
                     scan.status = "failed"
                     scan.finished_at = utcnow()
                     scan.error_message = redact_sensitive(exc)
-                    scan.current_directory = None
                     write_crawl_log(
                         db,
                         scan_id,
                         "ERROR",
-                        f"Scan failed and can be resumed: {exc}",
+                        (
+                            f"Scan paused at {checkpoint} and can be continued: {exc}"
+                            if checkpoint
+                            else f"Scan paused and can be continued: {exc}"
+                        ),
+                        checkpoint,
                         commit=False,
                     )
         finally:
@@ -501,23 +550,20 @@ class CrawlerWorker:
                     scan.unchanged_entries += 1
 
     def _mark_stopped(self, db: Session, scan: ScanRun) -> None:
-        db.execute(
-            update(ScanDirectory)
-            .where(
-                ScanDirectory.scan_id == scan.id,
-                ScanDirectory.status == "in_progress",
-            )
-            .values(status="pending", updated_at=utcnow())
-        )
+        checkpoint = save_scan_checkpoint(db, scan)
         scan.status = "stopped"
         scan.finished_at = utcnow()
-        scan.current_directory = None
         scan.stop_requested = False
         write_crawl_log(
             db,
             scan.id,
             "INFO",
-            "Scan stopped safely. It can be resumed from the remaining queue.",
+            (
+                f"Scan stopped safely at {checkpoint}. Use Continue scan to resume."
+                if checkpoint
+                else "Scan stopped safely. Use Continue scan to resume."
+            ),
+            checkpoint,
             commit=False,
         )
 
