@@ -302,15 +302,20 @@
     byId("crawler-mini-status").textContent = displayStatus.toUpperCase();
     const active = ["queued", "running", "stopping"].includes(status);
     const resumable = ["stopped", "failed"].includes(status);
+    const activeLocation = status === "queued"
+      ? "Waiting for crawler…"
+      : status === "stopping"
+        ? "Stopping safely…"
+        : "Preparing next folder…";
     byId("scan-incremental").disabled = active;
     byId("scan-full").disabled = active;
     byId("scan-stop").classList.toggle("hidden", !active);
     byId("scan-resume").classList.toggle("hidden", !resumable);
     byId("scan-location-label").textContent = resumable ? "SAVED CHECKPOINT" : "CURRENT FOLDER";
     byId("crawler-current").textContent = scan?.current_directory
-      || (resumable ? "Progress saved — ready to continue" : active ? "Connecting…" : "Waiting for a scan");
+      || (resumable ? "Progress saved — ready to continue" : active ? activeLocation : "Waiting for a scan");
     byId("scan-directory").textContent = scan?.current_directory
-      || (resumable ? "Saved queue is ready" : "No scan in progress");
+      || (resumable ? "Saved queue is ready" : active ? activeLocation : "No scan in progress");
     byId("scan-note").textContent = resumable
       ? "Completed folders are preserved. Continue uses the saved queue and does not rescan them."
       : "Each completed folder is saved so an interrupted scan can continue without starting over.";
@@ -617,7 +622,7 @@
 
   bindEvents();
   Promise.all([runSearch(), loadDashboard(), loadLogs(), loadSettings()]);
-  window.setInterval(() => pollIfIdle(loadScanStatus), 5000);
+  window.setInterval(() => pollIfIdle(loadScanStatus), 2000);
   window.setInterval(() => pollIfIdle(loadLogs), 30000);
   window.setInterval(() => pollIfIdle(loadDashboard), 60000);
 })();
