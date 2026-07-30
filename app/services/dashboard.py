@@ -23,6 +23,12 @@ def scan_to_dict(scan: ScanRun | None) -> dict[str, object] | None:
         if started.tzinfo is None:
             started = started.replace(tzinfo=end.tzinfo)
         duration_seconds = max(0, int((end - started).total_seconds()))
+    files_processed = scan.new_entries + scan.updated_entries + scan.unchanged_entries
+    files_per_hour = (
+        round(files_processed * 3600 / duration_seconds)
+        if duration_seconds
+        else None
+    )
     progress = None
     if scan.directories_queued:
         progress = min(100, round(scan.directories_scanned / scan.directories_queued * 100, 1))
@@ -35,6 +41,7 @@ def scan_to_dict(scan: ScanRun | None) -> dict[str, object] | None:
         "started_at": scan.started_at.isoformat() if scan.started_at else None,
         "finished_at": scan.finished_at.isoformat() if scan.finished_at else None,
         "duration_seconds": duration_seconds,
+        "files_per_hour": files_per_hour,
         "current_directory": scan.current_directory,
         "directories_queued": scan.directories_queued,
         "directories_scanned": scan.directories_scanned,

@@ -325,6 +325,9 @@
     byId("crawler-progress-bar").style.width = `${scan?.progress_percent || 0}%`;
     byId("scan-duration").textContent = formatDuration(scan?.duration_seconds);
     byId("scan-folders").textContent = scan ? `${formatNumber(scan.directories_scanned)} / ${formatNumber(scan.directories_queued)}` : "—";
+    byId("scan-rate").textContent = Number.isFinite(scan?.files_per_hour)
+      ? formatNumber(scan.files_per_hour)
+      : "—";
     byId("scan-failed").textContent = scan ? formatNumber(scan.failed) : "—";
     byId("server-pulse").style.background = status === "failed" ? "var(--red)" : "var(--green)";
   }
