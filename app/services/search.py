@@ -56,11 +56,17 @@ def search_files(db: Session, params: SearchParams) -> dict[str, object]:
     per_page = min(params.per_page, settings.max_results_per_page)
     where: list[str] = []
     values: dict[str, object] = {}
-    join = ""
+    from_clause = "FROM files f"
 
     fts_query = build_fts_query(params.q)
     if fts_query:
-        join = " JOIN file_search ON file_search.rowid = f.id "
+        # SQLite may otherwise drive this join from an `available` index and
+        # probe FTS once for every file. CROSS JOIN preserves the written order:
+        # match the small FTS result set first, then fetch each file by rowid.
+        from_clause = (
+            "FROM file_search CROSS JOIN files f "
+            "ON f.id = file_search.rowid"
+        )
         where.append("file_search MATCH :fts_query")
         values["fts_query"] = fts_query
     elif params.q.strip():
@@ -118,7 +124,7 @@ def search_files(db: Session, params: SearchParams) -> dict[str, object]:
         rows = db.execute(
             text(
                 f"SELECT {select_fields}, COUNT(*) OVER() AS result_total "
-                f"FROM files f {join} {where_sql} "
+                f"{from_clause} {where_sql} "
                 f"ORDER BY {sort_column} {order}, f.id ASC "
                 "LIMIT :limit OFFSET :offset"
             ),
@@ -134,7 +140,7 @@ def search_files(db: Session, params: SearchParams) -> dict[str, object]:
             page = 1
         else:
             total = db.execute(
-                text(f"SELECT COUNT(*) FROM files f {join} {where_sql}"),
+                text(f"SELECT COUNT(*) {from_clause} {where_sql}"),
                 values,
             ).scalar_one()
             pages = max(1, math.ceil(total / per_page))
@@ -142,7 +148,7 @@ def search_files(db: Session, params: SearchParams) -> dict[str, object]:
             rows = db.execute(
                 text(
                     f"SELECT {select_fields}, COUNT(*) OVER() AS result_total "
-                    f"FROM files f {join} {where_sql} "
+                    f"{from_clause} {where_sql} "
                     f"ORDER BY {sort_column} {order}, f.id ASC "
                     "LIMIT :limit OFFSET :offset"
                 ),
@@ -154,7 +160,7 @@ def search_files(db: Session, params: SearchParams) -> dict[str, object]:
             ).mappings().all()
     else:
         total = db.execute(
-            text(f"SELECT COUNT(*) FROM files f {join} {where_sql}"),
+            text(f"SELECT COUNT(*) {from_clause} {where_sql}"),
             values,
         ).scalar_one()
         pages = max(1, math.ceil(total / per_page))
@@ -162,7 +168,7 @@ def search_files(db: Session, params: SearchParams) -> dict[str, object]:
         rows = db.execute(
             text(
                 f"SELECT {select_fields} "
-                f"FROM files f {join} {where_sql} "
+                f"{from_clause} {where_sql} "
                 f"ORDER BY {sort_column} {order}, f.id ASC "
                 "LIMIT :limit OFFSET :offset"
             ),

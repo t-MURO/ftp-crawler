@@ -175,4 +175,5 @@ def test_fts_search_gets_count_and_page_in_one_search_query() -> None:
     assert len(result["items"]) == 10
     assert len(search_statements) == 1
     assert "COUNT(*) OVER()" in search_statements[0]
+    assert "FROM file_search CROSS JOIN files f" in search_statements[0]
     db.close()
