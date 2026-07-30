@@ -1023,6 +1023,19 @@ mark {
   width: 15px;
 }
 
+.results-panel.is-searching .result-count::before {
+  animation: spin 800ms linear infinite;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  border-top-color: var(--accent);
+  content: "";
+  display: inline-block;
+  height: 13px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  width: 13px;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

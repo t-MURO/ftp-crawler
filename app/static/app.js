@@ -212,9 +212,14 @@
   async function runSearch({ scroll = false } = {}) {
     if (state.controller) state.controller.abort();
     const controller = new AbortController();
+    const hasVisibleResults = Boolean(resultsBody.querySelector(".result-row"));
     state.controller = controller;
     searchInFlight = true;
-    resultsBody.innerHTML = '<tr class="loading-row"><td colspan="6"><span class="loader"></span> Searching the index…</td></tr>';
+    resultsBody.closest(".results-panel").classList.add("is-searching");
+    resultsBody.setAttribute("aria-busy", "true");
+    if (!hasVisibleResults) {
+      resultsBody.innerHTML = '<tr class="loading-row"><td colspan="6"><span class="loader"></span> Searching the index…</td></tr>';
+    }
     try {
       const result = await api(`/api/search?${searchParams()}`, { signal: controller.signal });
       renderResults(result.items);
@@ -223,9 +228,17 @@
       if (scroll) byId("results-title").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
       if (error.name === "AbortError") return;
-      resultsBody.innerHTML = `<tr class="error-row"><td colspan="6">${escapeHtml(error.message)}</td></tr>`;
+      if (hasVisibleResults) {
+        toast(error.message, "error");
+      } else {
+        resultsBody.innerHTML = `<tr class="error-row"><td colspan="6">${escapeHtml(error.message)}</td></tr>`;
+      }
     } finally {
-      if (state.controller === controller) searchInFlight = false;
+      if (state.controller === controller) {
+        searchInFlight = false;
+        resultsBody.closest(".results-panel").classList.remove("is-searching");
+        resultsBody.removeAttribute("aria-busy");
+      }
     }
   }
 
@@ -472,8 +485,10 @@
     });
     let debounceTimer;
     queryInput.addEventListener("input", () => {
-      state.q = queryInput.value.trim();
-      heroQuery.value = state.q;
+      const nextQuery = queryInput.value.trim();
+      heroQuery.value = nextQuery;
+      if (nextQuery === state.q) return;
+      state.q = nextQuery;
       state.page = 1;
       window.clearTimeout(debounceTimer);
       if (state.q.length === 1) return;
