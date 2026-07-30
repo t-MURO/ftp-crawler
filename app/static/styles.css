@@ -458,6 +458,10 @@ kbd {
   padding: 5px 8px;
 }
 
+.hero-search kbd {
+  margin-right: 10px;
+}
+
 .hero-search button {
   align-self: stretch;
   background: var(--accent);

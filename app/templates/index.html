@@ -202,14 +202,14 @@
               </tr>
             </thead>
             <tbody id="results-body">
-              <tr class="loading-row">
-                <td colspan="6"><span class="loader"></span> Loading the index…</td>
+              <tr class="empty-row">
+                <td colspan="6">Enter a search to browse the index.</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div class="pagination">
+        <div class="pagination hidden" id="results-pagination">
           <span id="page-summary">Page 1 of 1</span>
           <div>
             <button class="icon-button" id="page-prev" type="button" aria-label="Previous page">←</button>
@@ -247,7 +247,7 @@
           <div class="scan-stat-row">
             <span><small>DURATION</small><strong id="scan-duration">—</strong></span>
             <span><small>FOLDERS</small><strong id="scan-folders">—</strong></span>
-            <span><small>AVG FILES / HR</small><strong id="scan-rate">—</strong></span>
+            <span><small>FILES / HR</small><strong id="scan-rate">—</strong></span>
             <span><small>FAILED</small><strong id="scan-failed">—</strong></span>
           </div>
           <div class="scan-actions">
@@ -255,6 +255,7 @@
             <button class="button button-secondary" id="scan-full" type="button">Full rescan</button>
             <button class="button button-danger hidden" id="scan-stop" type="button">Stop safely</button>
             <button class="button button-primary hidden" id="scan-resume" type="button">Continue scan</button>
+            <button class="button button-secondary" id="scan-rate-reset" type="button" disabled>Reset rate</button>
           </div>
           <p class="control-note" id="scan-note">Each completed folder is saved so an interrupted scan can continue without starting over.</p>
         </article>

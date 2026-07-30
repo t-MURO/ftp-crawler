@@ -21,9 +21,14 @@
   const csrfToken = document.body.dataset.csrfToken;
   const byId = (id) => document.getElementById(id);
   const resultsBody = byId("results-body");
+  const resultsPanel = resultsBody.closest(".results-panel");
+  const resultsPagination = byId("results-pagination");
   const queryInput = byId("query");
   const heroQuery = byId("hero-query");
+  const rateMeterStorageKey = "ftp-indexer-rate-meter";
   let searchInFlight = false;
+  let latestScan = null;
+  let rateMeter = loadRateMeter();
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -75,6 +80,50 @@
     if (value < 60) return `${value}s`;
     if (value < 3600) return `${Math.floor(value / 60)}m ${value % 60}s`;
     return `${Math.floor(value / 3600)}h ${Math.floor((value % 3600) / 60)}m`;
+  }
+
+  function loadRateMeter() {
+    try {
+      const value = JSON.parse(window.localStorage.getItem(rateMeterStorageKey));
+      if (
+        value
+        && typeof value.scanId === "string"
+        && Number.isFinite(value.files)
+        && Number.isFinite(value.resetAt)
+      ) {
+        return value;
+      }
+    } catch {
+      // The rate meter still works for this page when storage is unavailable.
+    }
+    return null;
+  }
+
+  function saveRateMeter(value) {
+    rateMeter = value;
+    try {
+      window.localStorage.setItem(rateMeterStorageKey, JSON.stringify(value));
+    } catch {
+      // Keep the in-memory baseline when storage is unavailable.
+    }
+  }
+
+  function processedFiles(scan) {
+    return Number(scan?.new || 0)
+      + Number(scan?.updated || 0)
+      + Number(scan?.unchanged || 0);
+  }
+
+  function displayedFilesPerHour(scan) {
+    if (!scan) return null;
+    if (!rateMeter || rateMeter.scanId !== scan.id) {
+      return scan.files_per_hour;
+    }
+    const finishedAt = scan.finished_at ? Date.parse(scan.finished_at) : NaN;
+    const measuredAt = Number.isFinite(finishedAt) ? finishedAt : Date.now();
+    const elapsedSeconds = Math.max(1, (measuredAt - rateMeter.resetAt) / 1000);
+    const filesSinceReset = Math.max(0, processedFiles(scan) - rateMeter.files);
+    return Math.round(filesSinceReset * 3600 / elapsedSeconds);
   }
 
   async function api(path, options = {}) {
@@ -189,6 +238,18 @@
     }).join("");
   }
 
+  function renderSearchPrompt(message) {
+    resultsPanel.classList.remove("is-searching");
+    resultsBody.removeAttribute("aria-busy");
+    resultsBody.innerHTML = `
+      <tr class="empty-row">
+        <td colspan="6">${escapeHtml(message)}</td>
+      </tr>`;
+    byId("result-total").textContent = "0";
+    renderPagination(1, 1);
+    resultsPagination.classList.add("hidden");
+  }
+
   function renderPagination(page, pages) {
     state.page = page;
     state.pages = pages;
@@ -211,11 +272,22 @@
 
   async function runSearch({ scroll = false } = {}) {
     if (state.controller) state.controller.abort();
+    state.controller = null;
+    if (state.q.length < 2) {
+      searchInFlight = false;
+      renderSearchPrompt(
+        state.q.length
+          ? "Enter at least two characters to search."
+          : "Enter a search to browse the index.",
+      );
+      if (scroll) byId("results-title").scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     const controller = new AbortController();
     const hasVisibleResults = Boolean(resultsBody.querySelector(".result-row"));
     state.controller = controller;
     searchInFlight = true;
-    resultsBody.closest(".results-panel").classList.add("is-searching");
+    resultsPanel.classList.add("is-searching");
     resultsBody.setAttribute("aria-busy", "true");
     if (!hasVisibleResults) {
       resultsBody.innerHTML = '<tr class="loading-row"><td colspan="6"><span class="loader"></span> Searching the index…</td></tr>';
@@ -225,6 +297,7 @@
       renderResults(result.items);
       byId("result-total").textContent = formatNumber(result.total);
       renderPagination(result.page, result.pages);
+      resultsPagination.classList.toggle("hidden", result.total === 0);
       if (scroll) byId("results-title").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
       if (error.name === "AbortError") return;
@@ -236,7 +309,7 @@
     } finally {
       if (state.controller === controller) {
         searchInFlight = false;
-        resultsBody.closest(".results-panel").classList.remove("is-searching");
+        resultsPanel.classList.remove("is-searching");
         resultsBody.removeAttribute("aria-busy");
       }
     }
@@ -293,6 +366,7 @@
   }
 
   function renderScan(scan) {
+    latestScan = scan;
     const status = scan?.status || "idle";
     const displayStatus = status.replace("_", " ");
     [byId("header-status"), byId("control-status")].forEach((element) => {
@@ -325,9 +399,11 @@
     byId("crawler-progress-bar").style.width = `${scan?.progress_percent || 0}%`;
     byId("scan-duration").textContent = formatDuration(scan?.duration_seconds);
     byId("scan-folders").textContent = scan ? `${formatNumber(scan.directories_scanned)} / ${formatNumber(scan.directories_queued)}` : "—";
-    byId("scan-rate").textContent = Number.isFinite(scan?.files_per_hour)
-      ? formatNumber(scan.files_per_hour)
+    const filesPerHour = displayedFilesPerHour(scan);
+    byId("scan-rate").textContent = Number.isFinite(filesPerHour)
+      ? formatNumber(filesPerHour)
       : "—";
+    byId("scan-rate-reset").disabled = status !== "running";
     byId("scan-failed").textContent = scan ? formatNumber(scan.failed) : "—";
     byId("server-pulse").style.background = status === "failed" ? "var(--red)" : "var(--green)";
   }
@@ -359,6 +435,17 @@
     } catch (error) {
       toast(error.message, "error");
     }
+  }
+
+  function resetScanRate() {
+    if (!latestScan || latestScan.status !== "running") return;
+    saveRateMeter({
+      scanId: latestScan.id,
+      files: processedFiles(latestScan),
+      resetAt: Date.now(),
+    });
+    renderScan(latestScan);
+    toast("Rate meter reset");
   }
 
   async function loadLogs() {
@@ -499,7 +586,10 @@
       state.q = nextQuery;
       state.page = 1;
       window.clearTimeout(debounceTimer);
-      if (state.q.length === 1) return;
+      if (state.q.length < 2) {
+        runSearch();
+        return;
+      }
       debounceTimer = window.setTimeout(() => runSearch(), 500);
     });
     byId("search-form").addEventListener("submit", (event) => {
@@ -574,6 +664,7 @@
     byId("scan-full").addEventListener("click", () => scanAction("/api/scans", { mode: "full" }));
     byId("scan-stop").addEventListener("click", () => scanAction("/api/scans/stop"));
     byId("scan-resume").addEventListener("click", () => scanAction("/api/scans/continue"));
+    byId("scan-rate-reset").addEventListener("click", resetScanRate);
     byId("log-level").addEventListener("change", loadLogs);
     byId("settings-form").addEventListener("submit", saveSettings);
     byId("reset-data-open").addEventListener("click", () => {
