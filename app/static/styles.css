@@ -1091,16 +1091,34 @@ mark {
 
 .extension-chart {
   display: grid;
-  gap: 11px;
+  gap: 14px;
   padding: 0 24px 26px;
+}
+
+.extension-summary {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  font-size: 9px;
+  justify-content: space-between;
+  letter-spacing: 0.05em;
+  padding-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.extension-summary strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 10px;
 }
 
 .extension-row {
   align-items: center;
   display: grid;
   font-size: 10px;
-  gap: 10px;
-  grid-template-columns: 66px minmax(70px, 1fr) 62px;
+  gap: 12px;
+  grid-template-columns: 66px minmax(70px, 1fr) 92px;
 }
 
 .extension-name {
@@ -1112,23 +1130,47 @@ mark {
 }
 
 .extension-bar {
-  background: var(--line);
+  appearance: none;
+  background: transparent;
+  border: 0;
   border-radius: 99px;
   height: 7px;
   overflow: hidden;
+  width: 100%;
 }
 
-.extension-bar span {
+.extension-bar::-webkit-progress-bar {
+  background: var(--line);
+  border-radius: 99px;
+}
+
+.extension-bar::-webkit-progress-value {
   background: var(--accent);
-  border-radius: inherit;
-  display: block;
-  height: 100%;
+  border-radius: 99px;
   min-width: 3px;
 }
 
-.extension-count {
-  color: var(--muted);
+.extension-bar::-moz-progress-bar {
+  background: var(--accent);
+  border-radius: 99px;
+  min-width: 3px;
+}
+
+.extension-metric {
+  display: grid;
+  gap: 2px;
   text-align: right;
+}
+
+.extension-metric strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.extension-metric small {
+  color: var(--muted);
+  font-size: 9px;
 }
 
 .chart-empty {
@@ -1842,6 +1884,15 @@ mark {
 
   .panel-head {
     padding: 20px 16px;
+  }
+
+  .extension-chart {
+    padding: 0 16px 22px;
+  }
+
+  .extension-row {
+    gap: 9px;
+    grid-template-columns: 54px minmax(60px, 1fr) 82px;
   }
 
   .log-item {

@@ -55,6 +55,17 @@
     return new Intl.NumberFormat().format(Number(value || 0));
   }
 
+  function formatPercentage(value, total) {
+    if (!total || !value) return "0%";
+    const percentage = Number(value) / Number(total) * 100;
+    return percentage < 0.1 ? "<0.1%" : `${percentage.toFixed(1)}%`;
+  }
+
+  function formatFileCount(value) {
+    const count = Number(value || 0);
+    return `${formatNumber(count)} ${count === 1 ? "file" : "files"}`;
+  }
+
   function formatBytes(value) {
     const bytes = Number(value || 0);
     if (!bytes) return "0 B";
@@ -344,7 +355,7 @@
         ? `Updated ${formatDate(data.last_successful_crawl, true)}`
         : "No completed scan yet";
       renderScan(data.scan);
-      renderExtensions(data.extensions);
+      renderExtensions(data.extensions, data.available_files);
     } catch (error) {
       byId("header-status").dataset.state = "error";
       byId("header-status").querySelector("span").textContent = "Index unavailable";
@@ -408,20 +419,35 @@
     byId("server-pulse").style.background = status === "failed" ? "var(--red)" : "var(--green)";
   }
 
-  function renderExtensions(items) {
+  function renderExtensions(items, totalFiles) {
     const container = byId("extension-chart");
     if (!items.length) {
       container.innerHTML = '<div class="chart-empty">Extension data appears after the first scan.</div>';
       return;
     }
-    const max = Math.max(...items.map((item) => item.count), 1);
-    container.innerHTML = items.slice(0, 10).map((item) => `
+    const listedFiles = items.reduce((sum, item) => sum + Number(item.count || 0), 0);
+    const total = Math.max(Number(totalFiles || 0), listedFiles, 1);
+    container.innerHTML = `
+      <div class="extension-summary">
+        <span>Share of indexed files</span>
+        <strong>${formatNumber(total)} total</strong>
+      </div>
+      ${items.slice(0, 10).map((item) => `
       <div class="extension-row">
         <span class="extension-name">${escapeHtml(item.extension)}</span>
-        <span class="extension-bar"><span style="width: ${Math.max(1, (item.count / max) * 100)}%"></span></span>
-        <span class="extension-count">${formatNumber(item.count)}</span>
+        <progress
+          class="extension-bar"
+          max="${total}"
+          value="${item.count}"
+          aria-label="${escapeHtml(item.extension)}: ${formatFileCount(item.count)}, ${escapeHtml(formatPercentage(item.count, total))}"
+        ></progress>
+        <span class="extension-metric">
+          <strong>${escapeHtml(formatPercentage(item.count, total))}</strong>
+          <small>${formatFileCount(item.count)}</small>
+        </span>
       </div>
-    `).join("");
+      `).join("")}
+    `;
   }
 
   async function scanAction(path, body) {
