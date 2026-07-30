@@ -21,7 +21,7 @@ from app.models import CrawlLog, ScanRun, utcnow
 from app.schemas import DataResetRequest, ScanCreate, SearchParams, SettingsUpdate
 from app.services.assets import static_asset_version
 from app.services.crawler import continue_scan, create_scan, write_crawl_log
-from app.services.dashboard import dashboard_stats, scan_to_dict
+from app.services.dashboard import dashboard_stats, invalidate_dashboard_cache, scan_to_dict
 from app.services.data_reset import ActiveScanError, reset_crawl_data
 from app.services.search import get_file_detail, search_files
 from app.services.security import (
@@ -343,4 +343,5 @@ def api_reset_data(
         deleted = reset_crawl_data(db)
     except ActiveScanError as exc:
         raise HTTPException(409, str(exc)) from exc
+    invalidate_dashboard_cache(db)
     return {"deleted": deleted, "settings_preserved": True}

@@ -23,6 +23,7 @@
   const resultsBody = byId("results-body");
   const queryInput = byId("query");
   const heroQuery = byId("hero-query");
+  let searchInFlight = false;
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -210,10 +211,12 @@
 
   async function runSearch({ scroll = false } = {}) {
     if (state.controller) state.controller.abort();
-    state.controller = new AbortController();
+    const controller = new AbortController();
+    state.controller = controller;
+    searchInFlight = true;
     resultsBody.innerHTML = '<tr class="loading-row"><td colspan="6"><span class="loader"></span> Searching the index…</td></tr>';
     try {
-      const result = await api(`/api/search?${searchParams()}`, { signal: state.controller.signal });
+      const result = await api(`/api/search?${searchParams()}`, { signal: controller.signal });
       renderResults(result.items);
       byId("result-total").textContent = formatNumber(result.total);
       renderPagination(result.page, result.pages);
@@ -221,6 +224,8 @@
     } catch (error) {
       if (error.name === "AbortError") return;
       resultsBody.innerHTML = `<tr class="error-row"><td colspan="6">${escapeHtml(error.message)}</td></tr>`;
+    } finally {
+      if (state.controller === controller) searchInFlight = false;
     }
   }
 
@@ -258,6 +263,20 @@
       byId("header-status").dataset.state = "error";
       byId("header-status").querySelector("span").textContent = "Index unavailable";
     }
+  }
+
+  async function loadScanStatus() {
+    try {
+      const data = await api("/api/scans/status");
+      renderScan(data.scan);
+    } catch {
+      byId("header-status").dataset.state = "error";
+      byId("header-status").querySelector("span").textContent = "Crawler unavailable";
+    }
+  }
+
+  function pollIfIdle(loader) {
+    if (!document.hidden && !searchInFlight) loader();
   }
 
   function renderScan(scan) {
@@ -314,7 +333,7 @@
       if (body) options.body = JSON.stringify(body);
       await api(path, options);
       toast("Crawler request accepted");
-      await loadDashboard();
+      await loadScanStatus();
       await loadLogs();
     } catch (error) {
       toast(error.message, "error");
@@ -576,10 +595,14 @@
       }
       if (event.key === "Escape") document.querySelector(".sidebar").classList.remove("open");
     });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) Promise.all([loadScanStatus(), loadLogs()]);
+    });
   }
 
   bindEvents();
   Promise.all([runSearch(), loadDashboard(), loadLogs(), loadSettings()]);
-  window.setInterval(loadDashboard, 5000);
-  window.setInterval(loadLogs, 15000);
+  window.setInterval(() => pollIfIdle(loadScanStatus), 5000);
+  window.setInterval(() => pollIfIdle(loadLogs), 30000);
+  window.setInterval(() => pollIfIdle(loadDashboard), 60000);
 })();

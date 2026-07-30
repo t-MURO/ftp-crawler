@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import threading
+import time
+
 from sqlalchemy import case, desc, func, select
 from sqlalchemy.orm import Session
 
 from app.models import CrawlLog, DirectoryEntry, FileEntry, ScanRun, utcnow
+
+DASHBOARD_CACHE_SECONDS = 30.0
+_dashboard_cache: dict[object, tuple[float, dict[str, object]]] = {}
+_dashboard_cache_lock = threading.Lock()
 
 
 def scan_to_dict(scan: ScanRun | None) -> dict[str, object] | None:
@@ -42,7 +49,27 @@ def scan_to_dict(scan: ScanRun | None) -> dict[str, object] | None:
     }
 
 
+def invalidate_dashboard_cache(db: Session | None = None) -> None:
+    with _dashboard_cache_lock:
+        if db is None:
+            _dashboard_cache.clear()
+        else:
+            _dashboard_cache.pop(db.get_bind(), None)
+
+
 def dashboard_stats(db: Session) -> dict[str, object]:
+    cache_key = db.get_bind()
+    now = time.monotonic()
+    with _dashboard_cache_lock:
+        cached = _dashboard_cache.get(cache_key)
+        if cached and cached[0] > now:
+            return cached[1]
+        snapshot = _dashboard_stats_uncached(db)
+        _dashboard_cache[cache_key] = (now + DASHBOARD_CACHE_SECONDS, snapshot)
+        return snapshot
+
+
+def _dashboard_stats_uncached(db: Session) -> dict[str, object]:
     totals = db.execute(
         select(
             func.count(FileEntry.id),
